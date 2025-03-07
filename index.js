@@ -13,6 +13,7 @@ const searchrouter = require("./routes/search");
 const qchatrouter = require("./routes/qchat");
 const checkrouter = require("./routes/check");
 const zipscommentsrouter = require("./routes/zipscomments");
+const compression = require("compression");
 /****************************************************************************************************/
 dotenv.config({ path: "./config.env" });
 const port = process.env.PORT || 3000;
@@ -29,6 +30,7 @@ app.use(cors());
 app.use(helmet());
 app.use(xss());
 app.use(hpp());
+app.use(compression());
 
 mongoose.connect(DB).then(() => {
   app.listen(port, async () => {

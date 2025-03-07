@@ -5,11 +5,12 @@
   "main": "index.js",
   "scripts": {
     "test": "This is a test script",
-    "laugh": "Always keep smiling!!"
+    "laugh": "Always keep smiling!!",
   },
   "author": "Samanth Annaiah",
   "license": "ISC",
   "dependencies": {
+    "compress": "^0.99.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
