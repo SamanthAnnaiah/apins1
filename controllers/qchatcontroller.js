@@ -1,5 +1,6 @@
 const { default: OpenAI } = require("openai");
 const dotenv = require("dotenv");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 dotenv.config();
 
 async function qchatcontroller(req, res) {
@@ -114,7 +115,151 @@ async function qchatcheck(qdata) {
   }
 }
 
+async function geminiChatController(req, res) {
+  try {
+    let userQuestion = req.body.aiq;
+    const modelName = req.body.model || "gemini-pro"; // Default to gemini-pro if not specified
+
+    if (!userQuestion) {
+      return res.status(400).json({
+        success: false,
+        error: "No question provided",
+      });
+    }
+
+    // Initialize the Google Generative AI with your API key
+    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+
+    // Configure the model
+    const modelConfig = {
+      model: modelName,
+      generationConfig: {
+        temperature: 0.7,
+        topP: 0.8,
+        topK: 40,
+        maxOutputTokens: 2048,
+      },
+      safetySettings: [
+        {
+          category: "HARM_CATEGORY_HARASSMENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE",
+        },
+        {
+          category: "HARM_CATEGORY_HATE_SPEECH",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE",
+        },
+        {
+          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE",
+        },
+        {
+          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE",
+        },
+      ],
+    };
+
+    const model = genAI.getGenerativeModel(modelConfig);
+
+    // Check if streaming is requested
+    const streamResponse = req.query.stream === "true";
+
+    if (streamResponse) {
+      // Set up streaming response
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      // Generate content with streaming
+      const streamingResult = await model.generateContentStream(userQuestion);
+
+      for await (const chunk of streamingResult.stream) {
+        const chunkText = chunk.text();
+        res.write(`data: ${JSON.stringify({ text: chunkText })}\n\n`);
+      }
+
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      res.end();
+    } else {
+      // Standard non-streaming response
+      const result = await model.generateContent(userQuestion);
+      const response = await result.response;
+      const text = response.text();
+
+      return res.status(200).json({
+        success: true,
+        data: text,
+        model: modelName,
+      });
+    }
+  } catch (error) {
+    console.error("Error in Gemini API:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Something went wrong with Gemini API",
+    });
+  }
+}
+
+async function geminiMultimodalController(req, res) {
+  try {
+    const { prompt, imageUrls } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({
+        success: false,
+        error: "No prompt provided",
+      });
+    }
+
+    if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "At least one image URL is required",
+      });
+    }
+
+    // Initialize the Google Generative AI with your API key
+    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+
+    // For multimodal input, use the gemini-pro-vision model
+    const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
+
+    // Prepare the multimodal content parts
+    const parts = [
+      { text: prompt },
+      ...imageUrls.map((url) => ({
+        inlineData: {
+          mimeType: "image/jpeg", // Adjust based on your image type
+          data: Buffer.from(url).toString("base64"),
+        },
+      })),
+    ];
+
+    // Generate content
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts }],
+    });
+
+    const response = await result.response;
+    const text = response.text();
+
+    return res.status(200).json({
+      success: true,
+      data: text,
+    });
+  } catch (error) {
+    console.error("Error in Gemini Multimodal API:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Something went wrong with Gemini Multimodal API",
+    });
+  }
+}
+
 module.exports = {
   qchatcontroller,
   qchatcheck,
+  geminiChatController,
+  geminiMultimodalController,
 };

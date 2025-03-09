@@ -8,7 +8,7 @@ searchrouter.route("/").post(async (req, res) => {
     console.log("search result:", result);
     console.log("req.body.searchpin", req.body.searchpin);
     if (result.success) {
-      res.json({ error: "none12", result: result.data });
+      res.json({ error: "none", result: result.data });
     } else {
       console.log(result.data);
       res.status(404).json({ error: result.error });
