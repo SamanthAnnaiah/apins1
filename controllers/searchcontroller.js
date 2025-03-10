@@ -47,7 +47,7 @@ exports.searchLoad = async function (searchpin) {
     } else {
       sdata = await zipsusa.aggregate([
         {
-          $match: { cpin: 1007 },
+          $match: { cpin: searchpin },
         },
         {
           $lookup: {
